@@ -39,7 +39,7 @@ find_library(
 )
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(sodium DEFAULT_MSG SODIUM_LIBRARIES SODIUM_INCLUDE_DIRS)
+find_package_handle_standard_args(Sodium DEFAULT_MSG SODIUM_LIBRARIES SODIUM_INCLUDE_DIRS)
 mark_as_advanced(SODIUM_FOUND SODIUM_LIBRARIES SODIUM_INCLUDE_DIRS)
 
 ################################################################################
