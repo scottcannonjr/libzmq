@@ -20,6 +20,7 @@ include(FindThreads)
 include(GNUInstallDirs)
 include(CheckTypeSize)
 include(CMakePackageConfigHelpers)
+include(flags OPTIONAL)
 
 list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_SOURCE_DIR}")
 set(ZMQ_CMAKE_MODULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/builds/cmake/Modules)
@@ -1224,7 +1225,22 @@ set(VERSION ${ZMQ_VERSION_MAJOR}.${ZMQ_VERSION_MINOR}.${ZMQ_VERSION_PATCH})
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/libzmq.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libzmq.pc @ONLY)
 set(zmq-pkgconfig ${CMAKE_CURRENT_BINARY_DIR}/libzmq.pc)
 
-if(NOT ZMQ_BUILD_FRAMEWORK)
+if(DEFINED LIBZMQ_VER)
+  if(NOT LIBZMQ_VER STREQUAL ZMQ_VERSION)
+    message(AUTHOR_WARNING "version passed in (${LIBZMQ_VER}) doesn't match internal version (${ZMQ_VERSION})")
+  endif()
+  if(NOT MSVC)
+    set(ZMQ_OUTPUT_BASENAME ${ZMQ_OUTPUT_BASENAME}_${ZMQ_VERSION})
+  endif()
+endif()
+if(DEFINED XP_NAMESPACE)
+  set(nSpace ${XP_NAMESPACE}::)
+  set(nameSpace NAMESPACE ${nSpace})
+endif()
+
+option(INSTALL_PKGCONFIG "pkgconfig install" ON)
+mark_as_advanced(INSTALL_PKGCONFIG)
+if(NOT ZMQ_BUILD_FRAMEWORK AND INSTALL_PKGCONFIG)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libzmq.pc DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 endif()
 
@@ -1350,7 +1366,8 @@ else()
     set_property(TARGET objects PROPERTY POSITION_INDEPENDENT_CODE ON)
     target_include_directories(
       objects PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> $<INSTALL_INTERFACE:include>)
+                     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+                     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
   endif()
 
   if(BUILD_SHARED)
@@ -1422,7 +1439,8 @@ endif()
 foreach(target ${target_outputs})
   target_include_directories(
     ${target} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> $<INSTALL_INTERFACE:include>)
+                     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+                     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 endforeach()
 
 if(BUILD_SHARED)
@@ -1688,7 +1706,7 @@ write_basic_package_version_file(
 if(BUILD_SHARED OR BUILD_STATIC)
   install(
     EXPORT ${PROJECT_NAME}-targets
-    FILE ${PROJECT_NAME}Targets.cmake
+    FILE ${PROJECT_NAME}Targets.cmake ${nameSpace}
     DESTINATION ${ZEROMQ_CMAKECONFIG_INSTALL_DIR})
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
                 ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
