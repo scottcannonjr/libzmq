@@ -171,13 +171,13 @@ zmq::socket_base_t *zmq::socket_base_t::create (int type_,
             s = new (std::nothrow) req_t (parent_, tid_, sid_);
             break;
         case ZMQ_REP:
-            s = new (std::nothrow) rep_t (parent_, tid_, sid_);
+            s = new (std::nothrow) rep_t (parent_, tid_, sid_, nullptr, nullptr);
             break;
         case ZMQ_DEALER:
             s = new (std::nothrow) dealer_t (parent_, tid_, sid_);
             break;
         case ZMQ_ROUTER:
-            s = new (std::nothrow) router_t (parent_, tid_, sid_);
+            s = new (std::nothrow) router_t (parent_, tid_, sid_, nullptr, nullptr);
             break;
         case ZMQ_PULL:
             s = new (std::nothrow) pull_t (parent_, tid_, sid_);
@@ -192,7 +192,7 @@ zmq::socket_base_t *zmq::socket_base_t::create (int type_,
             s = new (std::nothrow) xsub_t (parent_, tid_, sid_);
             break;
         case ZMQ_STREAM:
-            s = new (std::nothrow) stream_t (parent_, tid_, sid_);
+            s = new (std::nothrow) stream_t (parent_, tid_, sid_, nullptr, nullptr);
             break;
         case ZMQ_SERVER:
             s = new (std::nothrow) server_t (parent_, tid_, sid_);
@@ -226,6 +226,21 @@ zmq::socket_base_t *zmq::socket_base_t::create (int type_,
             return NULL;
     }
 
+    alloc_assert (s);
+
+    if (s->_mailbox == NULL) {
+        s->_destroyed = true;
+        LIBZMQ_DELETE (s);
+        return NULL;
+    }
+
+    return s;
+}
+
+zmq::socket_base_t *
+zmq::socket_base_t::create_router (zmq::ctx_t *parent_, uint32_t tid_, int sid_, zmq_router_skt_peer_connect_notification_fn *cnfn_, void *cnfnhint_)
+{
+    socket_base_t *s = new (std::nothrow) router_t (parent_, tid_, sid_, cnfn_, cnfnhint_);
     alloc_assert (s);
 
     if (s->_mailbox == NULL) {
@@ -2063,8 +2078,10 @@ bool zmq::socket_base_t::is_disconnected () const
 
 zmq::routing_socket_base_t::routing_socket_base_t (class ctx_t *parent_,
                                                    uint32_t tid_,
-                                                   int sid_) :
+                                                   int sid_, zmq_router_skt_peer_connect_notification_fn *cnfn_, void *cnfnhint_) :
     socket_base_t (parent_, tid_, sid_)
+   ,_cnfn(cnfn_)
+   ,_cnfnhint(cnfnhint_)
 {
 }
 
@@ -2126,6 +2143,10 @@ void zmq::routing_socket_base_t::add_out_pipe (blob_t routing_id_,
       _out_pipes.ZMQ_MAP_INSERT_OR_EMPLACE (ZMQ_MOVE (routing_id_), outpipe)
         .second;
     zmq_assert (ok);
+    if(_cnfn)
+    {
+      _cnfn(routing_id_.data(), routing_id_.size(), 1/*true: is connecting*/, _cnfnhint);
+    }
 }
 
 bool zmq::routing_socket_base_t::has_out_pipe (const blob_t &routing_id_) const
@@ -2151,8 +2172,13 @@ zmq::routing_socket_base_t::lookup_out_pipe (const blob_t &routing_id_) const
 
 void zmq::routing_socket_base_t::erase_out_pipe (const pipe_t *pipe_)
 {
-    const size_t erased = _out_pipes.erase (pipe_->get_routing_id ());
+  auto const& rmtId = pipe_->get_routing_id();
+    const size_t erased = _out_pipes.erase (rmtId);
     zmq_assert (erased);
+    if(_cnfn)
+    {
+      _cnfn(rmtId.data(), rmtId.size(), 0/*false: is disconnecting*/, _cnfnhint);
+    }
 }
 
 zmq::routing_socket_base_t::out_pipe_t
@@ -2163,6 +2189,10 @@ zmq::routing_socket_base_t::try_erase_out_pipe (const blob_t &routing_id_)
     if (it != _out_pipes.end ()) {
         res = it->second;
         _out_pipes.erase (it);
+        if(_cnfn)
+        {
+          _cnfn(routing_id_.data(), routing_id_.size(), 0/*false: is disconnecting*/, _cnfnhint);
+        }
     }
     return res;
 }
