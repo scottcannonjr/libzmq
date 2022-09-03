@@ -1582,7 +1582,7 @@ if(BUILD_SHARED)
           VERBATIM
           COMMENT "Perf tools")
       else()
-        install(TARGETS ${perf-tool} RUNTIME DESTINATION bin COMPONENT PerfTools)
+        install(TARGETS ${perf-tool} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT PerfTools)
       endif()
       if(ZMQ_HAVE_WINDOWS_UWP)
         set_target_properties(${perf-tool} PROPERTIES LINK_FLAGS_DEBUG "/OPT:NOICF /OPT:NOREF")
@@ -1666,7 +1666,7 @@ foreach(readme ${readme-docs})
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${readme} ${CMAKE_CURRENT_BINARY_DIR}/${readme}.txt)
 
   if(NOT ZMQ_BUILD_FRAMEWORK)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${readme}.txt DESTINATION share/zmq)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${readme}.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/zmq)
   endif()
 endforeach()
 
@@ -1674,7 +1674,7 @@ if(WITH_DOC)
   if(NOT ZMQ_BUILD_FRAMEWORK)
     install(
       FILES ${html-docs}
-      DESTINATION doc/zmq
+      DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/zmq
       COMPONENT RefGuide)
   endif()
 endif()
